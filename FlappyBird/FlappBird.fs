@@ -17,6 +17,7 @@ let gravity (bird:Bird) = { bird with VY = bird.VY + 0.11  }
 /// Applies physics to bird
 let physics (bird:Bird) = { bird with Y = bird.Y + bird.VY }
 let death (bird: Bird) = { bird with IsAlive = false }
+let deathFall (bird: Bird) = { bird with Y = bird.Y + 7.0 }
 /// Updates bird with gravity & physics
 let update = gravity >> physics
  
@@ -77,8 +78,8 @@ type FlappyBird() as this =
       let isMouseClicked () =
          currentMouseState.LeftButton = ButtonState.Pressed &&
          lastMouseState.LeftButton = ButtonState.Released
-      if isKeyPressedSinceLastFrame Keys.Space || isMouseClicked () 
-      then func ()
+      if isKeyPressedSinceLastFrame Keys.Space || isMouseClicked () then 
+         func ()
       lastKeyState <- currentKeyState
       lastMouseState <- currentMouseState     
 
@@ -96,13 +97,19 @@ type FlappyBird() as this =
       detectPress flapMe
       flappy <- update flappy
       // hit the ground 
-      if (flappy.Y - flappySize.Height > 360.0) then flappy <- death flappy       
+      if (flappy.Y - flappySize.Height > 360.0) then 
+         flappy <- death flappy       
       //basic collision detection
       for (x,y) in level do
          let x = x+scroll        
-         if intersectsTubeX(float (x)) && (intersectsTubeY1(float(y)-tubeSize.Height) || intersectsTubeY2(float(y+150))) then
+         if intersectsTubeX(float (x)) && (intersectsTubeY1(float(y)-tubeSize.Height) || intersectsTubeY2(float(y+150))) then 
             flappy <- death flappy
+
+   let updateDead(gameTime) = 
+      flappy <- deathFall flappy
+      detectPress newGame
       
+
    override this.LoadContent() =
       spriteBatch <- new SpriteBatch(this.GraphicsDevice)
       let load = loadImage this.GraphicsDevice
@@ -117,10 +124,10 @@ type FlappyBird() as this =
       fontRenderer <- FontRendering.FontRenderer(fontFile, fontTexture)
 
    override this.Update(gameTime) =
-      if flappy.IsAlive then
-          updateAlive(gameTime)
+      if flappy.IsAlive then 
+         updateAlive(gameTime)
       else 
-          detectPress newGame
+         updateDead(gameTime)
 
    override this.Draw(gameTime) =
       this.GraphicsDevice.Clear Color.White
@@ -128,15 +135,18 @@ type FlappyBird() as this =
       let draw (texture:Texture2D) (x,y) =
          spriteBatch.Draw(texture, Rectangle(x,y,texture.Width,texture.Height), Color.White)      
       let drawRotated (texture:Texture2D) (x,y) =
-         spriteBatch.Draw(texture, Rectangle(x,y,texture.Width,texture.Height), System.Nullable(), Color.White, float32(System.Math.PI), Vector2(float32(texture.Width), float32(texture.Height)), SpriteEffects.None, float32(0.0))      
+         spriteBatch.Draw(texture, Rectangle(x,y,texture.Width,texture.Height), System.Nullable(), Color.White, float32(0.0), Vector2(float32(texture.Width), float32(texture.Height)), SpriteEffects.FlipVertically, float32(0.0))      
       draw bg (0,0)
-      draw bird_sing (int flappy.X,int flappy.Y)
+      if flappy.IsAlive then 
+         draw bird_sing (int flappy.X,int flappy.Y)
+      else 
+         drawRotated bird_sing (int (flappy.X+flappySize.Width), int flappy.Y)
       for (x,y) in level do
-         let x = x+scroll        
+         let x = x+scroll
          draw tube1 (x,-int(tubeSize.Height)+y)
          draw tube2 (x,y+150)
       draw ground (0,360)
-      if not flappy.IsAlive then
+      if not flappy.IsAlive then 
          fontRenderer.DrawText(spriteBatch, 90, 100, "GAME OVER")         
       spriteBatch.End()
 
