@@ -95,10 +95,8 @@ type FlappyBird() as this =
       scroll <- scroll - 1
       detectPress flapMe
       flappy <- update flappy
-
       // hit the ground 
-      if (flappy.Y - flappySize.Height > 360.0) then flappy <- death flappy 
-      
+      if (flappy.Y - flappySize.Height > 360.0) then flappy <- death flappy       
       //basic collision detection
       for (x,y) in level do
          let x = x+scroll        
