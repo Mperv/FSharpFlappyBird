@@ -6,6 +6,8 @@
 #load "FontRendering.fs"
 #endif
 
+type Size = { Width: float; Height: float }
+
 /// Bird type
 type Bird = { X:float; Y:float; VY:float; IsAlive:bool }
 /// Respond to flap command
@@ -13,7 +15,8 @@ let flap (bird:Bird) = { bird with VY = - 4.0 } //- System.Math.PI }
 /// Applies gravity to bird
 let gravity (bird:Bird) = { bird with VY = bird.VY + 0.11  }
 /// Applies physics to bird
-let physics (bird:Bird) = { bird with Y = bird.Y + bird.VY; IsAlive = bird.Y < 350.0; }
+let physics (bird:Bird) = { bird with Y = bird.Y + bird.VY }
+let death (bird: Bird) = { bird with IsAlive = false }
 /// Updates bird with gravity & physics
 let update = gravity >> physics
  
@@ -57,6 +60,8 @@ type FlappyBird() as this =
    let mutable lastMouseState = MouseState()
    let level = generateLevel 100
    let mutable flappy = { X = 30.0; Y = 150.0; VY = 0.0; IsAlive=true }
+   let flappySize = { Width = 36.0; Height = 26.0 }
+   let tubeSize = { Width = 52.0; Height = 320.0 }
    let flapMe () = if flappy.IsAlive then flappy <- flap flappy
    let mutable scroll = 0
    let newGame () = 
@@ -77,11 +82,28 @@ type FlappyBird() as this =
       lastKeyState <- currentKeyState
       lastMouseState <- currentMouseState     
 
+   let intersectsTubeX (x: float) =
+      not (flappy.X > x+tubeSize.Width || flappy.X + flappySize.Width < x)
+
+   let intersectsTubeY1 (y: float) =
+      flappy.Y < y+tubeSize.Height
+
+   let intersectsTubeY2 (y: float) =
+      flappy.Y+flappySize.Height > y
+
    let updateAlive(gameTime) = 
       scroll <- scroll - 1
       detectPress flapMe
       flappy <- update flappy
+
+      // hit the ground 
+      if (flappy.Y - flappySize.Height > 360.0) then flappy <- death flappy 
       
+      //basic collision detection
+      for (x,y) in level do
+         let x = x+scroll        
+         if intersectsTubeX(float (x)) && (intersectsTubeY1(float(y)-tubeSize.Height) || intersectsTubeY2(float(y+150))) then
+            flappy <- death flappy
       
    override this.LoadContent() =
       spriteBatch <- new SpriteBatch(this.GraphicsDevice)
@@ -113,7 +135,7 @@ type FlappyBird() as this =
       draw bird_sing (int flappy.X,int flappy.Y)
       for (x,y) in level do
          let x = x+scroll        
-         draw tube1 (x,-320+y)
+         draw tube1 (x,-int(tubeSize.Height)+y)
          draw tube2 (x,y+150)
       draw ground (0,360)
       if not flappy.IsAlive then
