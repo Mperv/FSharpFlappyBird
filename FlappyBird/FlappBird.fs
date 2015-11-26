@@ -9,18 +9,22 @@
 /// Bird type
 type Bird = { X:float; Y:float; VY:float; IsAlive:bool }
 /// Respond to flap command
-let flap (bird:Bird) = { bird with VY = - System.Math.PI }
+let flap (bird:Bird) = { bird with VY = - 4.0 } //- System.Math.PI }
 /// Applies gravity to bird
-let gravity (bird:Bird) = { bird with VY = bird.VY + 0.1 }
+let gravity (bird:Bird) = { bird with VY = bird.VY + 0.11  }
 /// Applies physics to bird
-let physics (bird:Bird) = { bird with Y = bird.Y + bird.VY }
+let physics (bird:Bird) = { bird with Y = bird.Y + bird.VY; IsAlive = bird.Y < 350.0; }
 /// Updates bird with gravity & physics
 let update = gravity >> physics
  
 /// Generates the level's tube positions
 let generateLevel n =
    let rand = System.Random()
-   [for i in 1..n -> 50+(i*150), 32+rand.Next(160)]
+   [for i in 1..n -> 100+(i*180), 30+rand.Next(150)]
+//   seq { 
+//       while true do
+//           yield 100+(0*180), 30+rand.Next(150)
+//   }
 
 open System.IO
 open Microsoft.Xna.Framework
@@ -51,11 +55,34 @@ type FlappyBird() as this =
    let mutable fontRenderer = Unchecked.defaultof<FontRendering.FontRenderer>
    let mutable lastKeyState = KeyboardState()
    let mutable lastMouseState = MouseState()
-   let level = generateLevel 10
+   let level = generateLevel 100
    let mutable flappy = { X = 30.0; Y = 150.0; VY = 0.0; IsAlive=true }
    let flapMe () = if flappy.IsAlive then flappy <- flap flappy
    let mutable scroll = 0
+   let newGame () = 
+      flappy <- { X = 30.0; Y = 150.0; VY = 0.0; IsAlive=true }
+      scroll <- 0  
+   do newGame ()
 
+   let detectPress (func) =
+      let currentKeyState = Keyboard.GetState()
+      let currentMouseState = Mouse.GetState()
+      let isKeyPressedSinceLastFrame key =
+         currentKeyState.IsKeyDown(key) && lastKeyState.IsKeyUp(key)
+      let isMouseClicked () =
+         currentMouseState.LeftButton = ButtonState.Pressed &&
+         lastMouseState.LeftButton = ButtonState.Released
+      if isKeyPressedSinceLastFrame Keys.Space || isMouseClicked () 
+      then func ()
+      lastKeyState <- currentKeyState
+      lastMouseState <- currentMouseState     
+
+   let updateAlive(gameTime) = 
+      scroll <- scroll - 1
+      detectPress flapMe
+      flappy <- update flappy
+      
+      
    override this.LoadContent() =
       spriteBatch <- new SpriteBatch(this.GraphicsDevice)
       let load = loadImage this.GraphicsDevice
@@ -70,34 +97,27 @@ type FlappyBird() as this =
       fontRenderer <- FontRendering.FontRenderer(fontFile, fontTexture)
 
    override this.Update(gameTime) =
-      scroll <- scroll - 1
-      let currentKeyState = Keyboard.GetState()
-      let currentMouseState = Mouse.GetState()
-      let isKeyPressedSinceLastFrame key =
-         currentKeyState.IsKeyDown(key) && lastKeyState.IsKeyUp(key)
-      let isMouseClicked () =
-         currentMouseState.LeftButton = ButtonState.Pressed &&
-         lastMouseState.LeftButton = ButtonState.Released
-      if isKeyPressedSinceLastFrame Keys.Space || isMouseClicked () 
-      then flapMe ()
-      flappy <- update flappy
-      lastKeyState <- currentKeyState
-      lastMouseState <- currentMouseState     
-   
+      if flappy.IsAlive then
+          updateAlive(gameTime)
+      else 
+          detectPress newGame
+
    override this.Draw(gameTime) =
       this.GraphicsDevice.Clear Color.White
       spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied)
       let draw (texture:Texture2D) (x,y) =
          spriteBatch.Draw(texture, Rectangle(x,y,texture.Width,texture.Height), Color.White)      
+      let drawRotated (texture:Texture2D) (x,y) =
+         spriteBatch.Draw(texture, Rectangle(x,y,texture.Width,texture.Height), System.Nullable(), Color.White, float32(System.Math.PI), Vector2(float32(texture.Width), float32(texture.Height)), SpriteEffects.None, float32(0.0))      
       draw bg (0,0)
       draw bird_sing (int flappy.X,int flappy.Y)
       for (x,y) in level do
          let x = x+scroll        
          draw tube1 (x,-320+y)
-         draw tube2 (x,y+100)
+         draw tube2 (x,y+150)
       draw ground (0,360)
       if not flappy.IsAlive then
-         fontRenderer.DrawText(spriteBatch, 50, 50, "GAME OVER")
+         fontRenderer.DrawText(spriteBatch, 90, 100, "GAME OVER")         
       spriteBatch.End()
 
 do
