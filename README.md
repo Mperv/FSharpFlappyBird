@@ -7,3 +7,5 @@ List of added features:
 
 * collision detection for tubes and ground
 * level restart by spacebar or mouse button
+* fall animation after collision
+* game level generated on the fly

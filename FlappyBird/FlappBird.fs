@@ -21,14 +21,10 @@ let deathFall (bird: Bird) = { bird with Y = bird.Y + 7.0 }
 /// Updates bird with gravity & physics
 let update = gravity >> physics
  
-/// Generates the level's tube positions
-let generateLevel n =
-   let rand = System.Random()
-   [for i in 1..n -> 100+(i*180), 30+rand.Next(150)]
-//   seq { 
-//       while true do
-//           yield 100+(0*180), 30+rand.Next(150)
-//   }
+/// Calculates the level's next tube position
+let nextTube =
+    let rand = System.Random()
+    fun (x:int, y:int) -> (x + 150+rand.Next(50), 30+rand.Next(150))
 
 open System.IO
 open Microsoft.Xna.Framework
@@ -59,7 +55,8 @@ type FlappyBird() as this =
    let mutable fontRenderer = Unchecked.defaultof<FontRendering.FontRenderer>
    let mutable lastKeyState = KeyboardState()
    let mutable lastMouseState = MouseState()
-   let level = generateLevel 100
+   let mutable level = []
+   let mutable lastTube = (0, 0)
    let mutable flappy = { X = 30.0; Y = 150.0; VY = 0.0; IsAlive=true }
    let flappySize = { Width = 36.0; Height = 26.0 }
    let tubeSize = { Width = 52.0; Height = 320.0 }
@@ -67,6 +64,8 @@ type FlappyBird() as this =
    let mutable scroll = 0
    let newGame () = 
       flappy <- { X = 30.0; Y = 150.0; VY = 0.0; IsAlive=true }
+      lastTube <- nextTube (50, 0)
+      level <- [lastTube]
       scroll <- 0  
    do newGame ()
 
@@ -104,6 +103,14 @@ type FlappyBird() as this =
          let x = x+scroll        
          if intersectsTubeX(float (x)) && (intersectsTubeY1(float(y)-tubeSize.Height) || intersectsTubeY2(float(y+150))) then 
             flappy <- death flappy
+      //remove first tube if it gets off the screen
+      if (fst level.Head) + int(tubeSize.Width) < - scroll then 
+         level <- level.Tail
+      //add next tube if the last tube is visible
+      if (fst lastTube) < - scroll + 384 then
+         lastTube <- nextTube lastTube
+         level <- level @ [lastTube]
+
 
    let updateDead(gameTime) = 
       flappy <- deathFall flappy
